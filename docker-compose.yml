@@ -2,10 +2,7 @@ version: '3.8'
 
 services:
   gifbot:
-    image: gifbot:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: x3puair/gifbot:latest
     container_name: gifbot
     environment:
       # Provide via .env or override on command line
