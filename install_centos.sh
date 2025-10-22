@@ -1,34 +1,82 @@
-echo ">>> 1. install Python 3.6"
-sudo yum -y install epel-release
-sudo yum -y install https://centos7.iuscommunity.org/ius-release.rpm
-sudo yum -y install python36u
-sudo yum -y install python36u-pip
+#!/bin/bash
 
-python3.6 -V
-pip3.6 -V
+# CentOS 7 Python 3.6 and FFmpeg Installation Script
+# This script handles deprecated CentOS 7 repositories and installs required software
 
-echo ">>> 2. install FFmpeg"
-sudo rpm –import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
-sudo rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
-sudo yum -y install ffmpeg ffmpeg-devel
+set -e  # Exit on error
 
-ffmpeg -version
+echo "=========================================="
+echo "CentOS 7 Setup Script"
+echo "Installing Python 3.6 and FFmpeg"
+echo "=========================================="
 
-echo ">>> 3. setup repository"
-python3 -m venv .env
-source .env/bin/activate
-pip3 install -r requirements.txt
+# Step 1: Fix CentOS 7 repository URLs (vault.centos.org)
+echo ""
+echo "[1/5] Updating CentOS repository mirrors to vault.centos.org..."
+sed -i 's|^mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/CentOS-*.repo
+sed -i 's|^#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo
 
-echo ">>> 4. setup configuration"
-read -p "Input your bot token: " token
-touch global_config/protected_config.py
-echo "_telegrambot_token = '$token'" > global_config/protected_config.py
+# Clean yum cache
+yum clean all
+yum makecache
 
-read -p "Input your repo absolute location: " base_dir
-echo "_base_dir = '$base_dir'" > global_config/environment_config.py
+echo "Repository URLs updated successfully!"
 
-read -p "Input your cache absolute location: " temp_dir
-echo "_temp_dir = '$temp_dir'" >> global_config/environment_config.py
+# Step 2: Install Python 3.6
+echo ""
+echo "[2/5] Installing Python 3.6..."
+yum install -y python3
 
-echo ">>> 5. setup entrance"
-echo "One more step to be done, setup your bot entrance by yourself."
+# Verify Python installation
+echo "Python version installed:"
+python3 --version
+
+# Install pip for Python 3
+echo ""
+echo "[3/5] Installing pip for Python 3..."
+yum install -y python3-pip
+
+# Upgrade pip
+python3 -m pip install --upgrade pip
+
+echo "pip version:"
+pip3 --version
+
+# Step 3: Install EPEL repository for FFmpeg dependencies
+echo ""
+echo "[4/5] Installing EPEL repository..."
+yum install -y epel-release
+
+# Update EPEL repo to vault as well
+sed -i 's|^metalink=|#metalink=|g' /etc/yum.repos.d/epel.repo
+sed -i 's|^#baseurl=http://download.fedoraproject.org/pub/epel|baseurl=http://archives.fedoraproject.org/pub/archive/epel|g' /etc/yum.repos.d/epel.repo
+
+# Install RPM Fusion repository for FFmpeg
+echo "Installing RPM Fusion repository..."
+yum localinstall -y --nogpgcheck https://download1.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm
+
+# Step 4: Install FFmpeg
+echo ""
+echo "[5/5] Installing FFmpeg..."
+yum install -y ffmpeg ffmpeg-devel
+
+# Verify FFmpeg installation
+echo ""
+echo "FFmpeg version installed:"
+ffmpeg -version | head -n 1
+
+# Step 5: Summary
+echo ""
+echo "=========================================="
+echo "Installation Complete!"
+echo "=========================================="
+echo ""
+echo "Installed Software:"
+echo "  - Python: $(python3 --version)"
+echo "  - pip: $(pip3 --version | cut -d' ' -f1-2)"
+echo "  - FFmpeg: $(ffmpeg -version | head -n 1 | cut -d' ' -f1-3)"
+echo ""
+echo "You can now use python3, pip3, and ffmpeg commands."
+echo "=========================================="
+
+echo ">>> Setup tgbot configuration"

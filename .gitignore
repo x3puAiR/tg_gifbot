@@ -4,4 +4,5 @@ __pycache__/
 .env/
 .openssl/
 .app_cache/
-global_config/protected*
+
+.env
