@@ -6,9 +6,8 @@ For any manual or instruction or license related issue, please refer to original
 
 This repo is to make it dockerized for quick start.
 
+Full source code of the image can be found in [master](https://github.com/x3puAiR/tg_gifbot/tree/master) branch.
+
 ## Docker run
 
-Provide your bot token in .env file which should be created with same directory as docker-compose.yml.
-
-``` bash
-TELEGRAM_BOT_TOKEN=123456789:abcdefgaaaaa
+Clone this repo and rename .env.example to .env, replace with your bot token.
