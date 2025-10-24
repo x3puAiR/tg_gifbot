@@ -290,12 +290,12 @@ class BotExecutor():
         locale = update.effective_user.language_code
 
         file_id = update.effective_message.sticker.file_id
-        if update.effective_message.sticker.is_animated:
-            update.effective_message.reply_text(l10n('unsupport', locale))
+        # if update.effective_message.sticker.is_animated:
+            # update.effective_message.reply_text(l10n('unsupport', locale))
             # print(update.effective_message.sticker)
             # self.download_sticker_animated_async(file_id, update=update, context=context)
-        else:
-            self.download_sticker_async(file_id, update=update, context=context)
+        # else:
+        self.download_sticker_async(file_id, update=update, context=context)
 
     @check_usage_limit
     def cmd_sticker_set(self, update, context):
