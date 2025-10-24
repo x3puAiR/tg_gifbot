@@ -216,7 +216,13 @@ class BotExecutor():
 
         # download sticker
         file_dir = os.path.join(_temp_dir, sticker_name)
-        file_path = os.path.join(_temp_dir, sticker_name, sticker_name+'.png')
+        
+        # Determine the expected file extension based on sticker type
+        sticker_file_extension = os.path.splitext(sticker.file_path)[1].lower()
+        if sticker_file_extension == '.webm':
+            file_path = os.path.join(_temp_dir, sticker_name, sticker_name+'.gif')  # WebM converts to GIF
+        else:
+            file_path = os.path.join(_temp_dir, sticker_name, sticker_name+'.png')
         if os.path.isfile(file_path):
             pass
         elif os.path.isdir(file_dir):

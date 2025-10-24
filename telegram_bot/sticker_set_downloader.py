@@ -23,6 +23,37 @@ class StickerSetDownloader():
         return out_file_path
 
     @staticmethod
+    def webm2gif(in_file_path, out_file_path):
+        ''''''
+        # Use ffmpeg to convert WebM video to GIF
+        command = 'ffmpeg -y -i %(webm)s -vf "fps=15,scale=512:-1:flags=lanczos,palettegen" -t 3 %(palette)s'
+        palette_path = out_file_path.replace('.gif', '_palette.png')
+        command = command % {'webm': in_file_path, 'palette': palette_path}
+        status = os.system(command + ' > /dev/null 2>&1')
+        
+        if status != 0:
+            # Fallback to simpler conversion if palette generation fails
+            command = 'ffmpeg -y -i %(webm)s -vf "fps=15,scale=512:-1" -t 3 %(gif)s'
+            command = command % {'webm': in_file_path, 'gif': out_file_path}
+            status = os.system(command + ' > /dev/null 2>&1')
+            if status != 0:
+                raise Exception('ffmpeg error: execute .webm => .gif')
+            return out_file_path
+        
+        # Use palette for better quality GIF
+        command = 'ffmpeg -y -i %(webm)s -i %(palette)s -lavfi "fps=15,scale=512:-1:flags=lanczos [x]; [x][1:v] paletteuse" -t 3 %(gif)s'
+        command = command % {'webm': in_file_path, 'palette': palette_path, 'gif': out_file_path}
+        status = os.system(command + ' > /dev/null 2>&1')
+        
+        # Clean up palette file
+        os.path.isfile(palette_path) and os.remove(palette_path)
+        
+        if status != 0:
+            raise Exception('ffmpeg error: execute .webm => .gif')
+        else:
+            return out_file_path
+
+    @staticmethod
     def webm2png(in_file_path, out_file_path):
         ''''''
         # Use ffmpeg to extract first frame from WebM video and convert to PNG
@@ -84,7 +115,7 @@ class StickerSetDownloader():
         
         # Determine output path based on file type
         if file_extension == '.webm':
-            out_path = file_path.replace('.webm', '.png')
+            out_path = file_path.replace('.webm', '.gif')  # Convert WebM to GIF
         elif file_extension == '.webp':
             out_path = file_path.replace('.webp', '.png')
         else:
@@ -96,7 +127,7 @@ class StickerSetDownloader():
         
         # convert based on file type
         if file_extension == '.webm':
-            self.webm2png(file_path, out_path)
+            self.webm2gif(file_path, out_path)  # Convert WebM to GIF
         elif file_extension == '.webp':
             self.webp2png(file_path, out_path)
         else:
@@ -121,9 +152,10 @@ class StickerSetDownloader():
         # download and convert
         for sticker in stickers:
             file_id = sticker.file_id
-            original_path, _ = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
+            original_path, converted_path = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
             # Clean up the original file (webp, webm, etc.) after conversion
-            os.path.isfile(original_path) and os.remove(original_path)
+            if original_path != converted_path:
+                os.path.isfile(original_path) and os.remove(original_path)
 
         # zip
         out_path = out_path or file_dir + '.zip'
