@@ -342,15 +342,15 @@ class BotExecutor():
 
     def execute(self):
         ''''''
-        self.logger.info('🤖 Starting Telegram GIF Bot...')
+        self.logger.info('Starting Telegram GIF Bot...')
         
         # persistence
         pp = PicklePersistence(self.persistence_file_path, single_file=False)
-        self.logger.info('📁 Persistence system initialized')
+        self.logger.info('Persistence system initialized')
 
         updater = Updater(_telegrambot_token, use_context=True, persistence=pp)
         dp = updater.dispatcher
-        self.logger.info('🔗 Telegram API connection established')
+        self.logger.info('Telegram API connection established')
 
         dp.add_handler(CommandHandler('start', self.cmd_start))
         dp.add_handler(CommandHandler('help', self.cmd_help))
@@ -366,20 +366,20 @@ class BotExecutor():
         dp.add_error_handler(self.error_handler)
 
         if not self.cert_path or not self.key_path or not self.webhook_url:
-            self.logger.info('🔄 Starting bot in polling mode...')
+            self.logger.info('Starting bot in polling mode...')
             updater.start_polling()
-            self.logger.info('✅ Bot is now running and polling for updates!')
+            self.logger.info('Bot is now running and polling for updates!')
         else:
-            self.logger.info('🌐 Starting bot in webhook mode...')
+            self.logger.info('Starting bot in webhook mode...')
             updater.start_webhook(listen='0.0.0.0', port=8443, url_path='gifbot',
                                   cert=self.cert_path, key=self.key_path,
                                   webhook_url=self.webhook_url,
                                   bootstrap_retries=0,
                                   clean=True)
-            self.logger.info('✅ Bot is now running with webhook on port 8443!')
+            self.logger.info('Bot is now running with webhook on port 8443!')
 
-        self.logger.info('🚀 Telegram GIF Bot is fully operational!')
-        self.logger.info('💡 Send /start to begin or /help for commands')
+        self.logger.info('Telegram GIF Bot is fully operational!')
+        self.logger.info('Send /start to begin or /help for commands')
 
         # Run the bot until you press Ctrl-C or the process receives SIGINT,
         # SIGTERM or SIGABRT. This should be used most of the time, since
@@ -387,11 +387,11 @@ class BotExecutor():
         try:
             updater.idle()
         except KeyboardInterrupt:
-            self.logger.info('🛑 Bot shutdown requested by user')
+            self.logger.info('Bot shutdown requested by user')
         except Exception as e:
-            self.logger.error('❌ Bot encountered an error: %s', str(e))
+            self.logger.error('Bot encountered an error: %s', str(e))
         finally:
-            self.logger.info('👋 Telegram GIF Bot has been stopped')
+            self.logger.info('Telegram GIF Bot has been stopped')
             updater.stop()
 
 

@@ -7,8 +7,8 @@ from telegram_bot.bot_executor import BotExecutor
 
 
 if __name__ == '__main__':
-    print('🚀 Initializing Telegram GIF Bot...')
-    print('📦 Loading configuration and dependencies...')
+    print('Initializing Telegram GIF Bot...')
+    print('Loading configuration and dependencies...')
     
     # cert_path = os.path.join(_base_dir, '.openssl/cert.pem')
     # key_path = os.path.join(_base_dir, '.openssl/private.key')
