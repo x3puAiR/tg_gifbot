@@ -232,7 +232,12 @@ class BotExecutor():
         else:
             # make dir `sticker_name`
             os.path.isdir(file_dir) or os.makedirs(file_dir)
-            _, file_path = download_sticker(sticker, save_dir=file_dir)
+            try:
+                _, file_path = download_sticker(sticker, save_dir=file_dir)
+            except Exception as e:
+                message.reply_text(l10n('exec_error', locale))
+                self.logger.error('Exception in download_sticker: %s', str(e), exc_info=True)
+                return -1
 
         # send document
         sticker_set_name = message.sticker.set_name
@@ -327,7 +332,13 @@ class BotExecutor():
 
     def error_handler(self, update, context):
         ''''''
-        self.logger.error('Exception msg: %s\nUpdate: %s', context.error, update)
+        try:
+            # Safely convert update to string, handling Unicode characters
+            update_str = str(update) if update else 'None'
+            self.logger.error('Exception msg: %s\nUpdate: %s', context.error, update_str)
+        except UnicodeEncodeError:
+            # Fallback for Unicode issues
+            self.logger.error('Exception msg: %s\nUpdate: [Unicode content]', context.error)
 
     def execute(self):
         ''''''
