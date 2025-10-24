@@ -2,12 +2,14 @@ version: '3.8'
 
 services:
   gifbot:
-    image: x3puair/tg-gifbot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: gifbot
     environment:
       # Provide via .env or override on command line
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      BASE_DIR: /app
+      BASE_DIR: /app  
       TEMP_DIR: /data
     volumes:
       - ./.cache:/data

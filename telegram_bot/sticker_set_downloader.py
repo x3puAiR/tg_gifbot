@@ -23,6 +23,18 @@ class StickerSetDownloader():
         return out_file_path
 
     @staticmethod
+    def webm2png(in_file_path, out_file_path):
+        ''''''
+        # Use ffmpeg to extract first frame from WebM video and convert to PNG
+        command = 'ffmpeg -y -i %(webm)s -vframes 1 -f image2 %(png)s > /dev/null 2>&1'
+        command = command % {'webm': in_file_path, 'png': out_file_path}
+        status = os.system(command)
+        if status != 0:
+            raise Exception('ffmpeg error: execute .webm => .png')
+        else:
+            return out_file_path
+
+    @staticmethod
     def tgs2mp4(in_file_path, out_file_path):
         ''''''
         json_path = out_file_path.replace('mp4', 'json')
@@ -60,14 +72,40 @@ class StickerSetDownloader():
         # use default `temp` path
         save_dir = save_dir or _temp_dir
         file_name = sticker.file_path.split('/')[-1]
+        
+        # Determine file extension from the actual file path
+        file_extension = os.path.splitext(file_name)[1].lower()
+        
         if random_name:
-            file_name = random_string() + '.webp'
+            # Use the actual file extension instead of assuming .webp
+            file_name = random_string() + file_extension
+        
         file_path = os.path.join(save_dir, file_name)
-        out_path = file_path.replace('webp', 'png')
+        
+        # Determine output path based on file type
+        if file_extension == '.webm':
+            out_path = file_path.replace('.webm', '.png')
+        elif file_extension == '.webp':
+            out_path = file_path.replace('.webp', '.png')
+        else:
+            # For other formats, try to convert to PNG
+            out_path = file_path.replace(file_extension, '.png')
 
-        # download and convert
+        # download the file
         sticker.download(custom_path=file_path)
-        self.webp2png(file_path, out_path)
+        
+        # convert based on file type
+        if file_extension == '.webm':
+            self.webm2png(file_path, out_path)
+        elif file_extension == '.webp':
+            self.webp2png(file_path, out_path)
+        else:
+            # Try PIL first, fallback to ffmpeg if PIL fails
+            try:
+                self.webp2png(file_path, out_path)
+            except Exception:
+                # If PIL fails, try ffmpeg as fallback
+                self.webm2png(file_path, out_path)
 
         return (file_path, out_path)
 
@@ -83,8 +121,9 @@ class StickerSetDownloader():
         # download and convert
         for sticker in stickers:
             file_id = sticker.file_id
-            webp_path, _ = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
-            os.path.isfile(webp_path) and os.remove(webp_path)
+            original_path, _ = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
+            # Clean up the original file (webp, webm, etc.) after conversion
+            os.path.isfile(original_path) and os.remove(original_path)
 
         # zip
         out_path = out_path or file_dir + '.zip'

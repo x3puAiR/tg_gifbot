@@ -22,8 +22,8 @@ class MsgLogger():
         console_hdlr = logging.StreamHandler()
         console_hdlr.setLevel(logging.DEBUG)
         console_hdlr.setFormatter(self.formatter)
-        # file handler
-        file_hdlr = logging.FileHandler(self.log_file)
+        # file handler with UTF-8 encoding to handle Unicode characters
+        file_hdlr = logging.FileHandler(self.log_file, encoding='utf-8')
         file_hdlr.setLevel(logging.INFO)
         file_hdlr.setFormatter(self.formatter)
         # add handlers
