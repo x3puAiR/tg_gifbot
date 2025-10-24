@@ -211,37 +211,70 @@ class BotExecutor():
         chat = update.effective_chat
         message = update.effective_message
 
-        # send action
-        chat.send_action('upload_document')
+        # Determine the expected file extension based on sticker type
+        sticker_file_extension = os.path.splitext(sticker.file_path)[1].lower()
+        is_webm = sticker_file_extension == '.webm'
+        
+        if is_webm:
+            # Send processing message for WebM stickers
+            processing_msg = message.reply_text(l10n('webm_processing', locale))
+            chat.send_action('upload_document')
+        else:
+            # send action
+            chat.send_action('upload_document')
 
         # download sticker
         file_dir = os.path.join(_temp_dir, sticker_name)
         
-        # Determine the expected file extension based on sticker type
-        sticker_file_extension = os.path.splitext(sticker.file_path)[1].lower()
-        if sticker_file_extension == '.webm':
+        if is_webm:
             file_path = os.path.join(_temp_dir, sticker_name, sticker_name+'.gif')  # WebM converts to GIF
         else:
             file_path = os.path.join(_temp_dir, sticker_name, sticker_name+'.png')
+            
         if os.path.isfile(file_path):
             pass
         elif os.path.isdir(file_dir):
-            # wait 10 times, 10 seconds for each
-            for _ in range(10):
+            # wait longer for WebM conversion
+            max_wait = 20 if is_webm else 10  # 20 * 10 = 200 seconds for WebM, 100 for others
+            for i in range(max_wait):
                 if not os.path.isfile(file_path):
                     time.sleep(10)
+                    # Update progress for WebM conversion
+                    if is_webm and i % 3 == 0 and i > 0:  # Every 30 seconds
+                        try:
+                            processing_msg.edit_text(l10n('webm_processing_progress', locale) % {'time': i*10})
+                        except:
+                            pass
                 else:
                     break
             else:
-                message.reply_text(l10n('zip_timeout', locale))
+                if is_webm:
+                    try:
+                        processing_msg.edit_text(l10n('zip_timeout', locale))
+                    except:
+                        message.reply_text(l10n('zip_timeout', locale))
+                else:
+                    message.reply_text(l10n('zip_timeout', locale))
                 return -1
         else:
             # make dir `sticker_name`
             os.path.isdir(file_dir) or os.makedirs(file_dir)
             try:
                 _, file_path = download_sticker(sticker, save_dir=file_dir)
+                # Remove processing message for WebM
+                if is_webm:
+                    try:
+                        processing_msg.delete()
+                    except:
+                        pass
             except Exception as e:
-                message.reply_text(l10n('exec_error', locale))
+                if is_webm:
+                    try:
+                        processing_msg.edit_text(l10n('exec_error', locale))
+                    except:
+                        message.reply_text(l10n('exec_error', locale))
+                else:
+                    message.reply_text(l10n('exec_error', locale))
                 self.logger.error('Exception in download_sticker: %s', str(e), exc_info=True)
                 return -1
 

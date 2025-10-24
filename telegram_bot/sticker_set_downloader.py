@@ -25,33 +25,30 @@ class StickerSetDownloader():
     @staticmethod
     def webm2gif(in_file_path, out_file_path):
         ''''''
-        # Use ffmpeg to convert WebM video to GIF
-        command = 'ffmpeg -y -i %(webm)s -vf "fps=15,scale=512:-1:flags=lanczos,palettegen" -t 3 %(palette)s'
-        palette_path = out_file_path.replace('.gif', '_palette.png')
-        command = command % {'webm': in_file_path, 'palette': palette_path}
+        # Use ffmpeg to convert WebM video to GIF with optimized settings for speed
+        # Single command approach - faster than palette generation
+        command = 'ffmpeg -y -i %(webm)s -vf "fps=10,scale=256:-1:flags=fast_bilinear" -t 2 %(gif)s'
+        command = command % {'webm': in_file_path, 'gif': out_file_path}
+        
+        # Log the command for debugging
+        import logging
+        logger = logging.getLogger('gifbot')
+        logger.debug('WebM to GIF conversion command: %s', command)
+        
         status = os.system(command + ' > /dev/null 2>&1')
         
         if status != 0:
-            # Fallback to simpler conversion if palette generation fails
-            command = 'ffmpeg -y -i %(webm)s -vf "fps=15,scale=512:-1" -t 3 %(gif)s'
+            # Fallback to even simpler conversion
+            command = 'ffmpeg -y -i %(webm)s -vf "fps=8,scale=256:-1" -t 1.5 %(gif)s'
             command = command % {'webm': in_file_path, 'gif': out_file_path}
+            logger.debug('WebM to GIF fallback command: %s', command)
             status = os.system(command + ' > /dev/null 2>&1')
             if status != 0:
+                logger.error('WebM to GIF conversion failed with status: %s', status)
                 raise Exception('ffmpeg error: execute .webm => .gif')
-            return out_file_path
         
-        # Use palette for better quality GIF
-        command = 'ffmpeg -y -i %(webm)s -i %(palette)s -lavfi "fps=15,scale=512:-1:flags=lanczos [x]; [x][1:v] paletteuse" -t 3 %(gif)s'
-        command = command % {'webm': in_file_path, 'palette': palette_path, 'gif': out_file_path}
-        status = os.system(command + ' > /dev/null 2>&1')
-        
-        # Clean up palette file
-        os.path.isfile(palette_path) and os.remove(palette_path)
-        
-        if status != 0:
-            raise Exception('ffmpeg error: execute .webm => .gif')
-        else:
-            return out_file_path
+        logger.debug('WebM to GIF conversion completed successfully')
+        return out_file_path
 
     @staticmethod
     def webm2png(in_file_path, out_file_path):

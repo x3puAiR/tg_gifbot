@@ -32,6 +32,8 @@ _translation = {
         'zip_timeout': '等待超时，请稍后重试',
         'exec_error': '执行错误，请自行下载转换',
         'file_size_exceed': '文件过大，请自行下载转换',
+        'webm_processing': '正在转换WebM贴纸为GIF，请稍候...',
+        'webm_processing_progress': '正在转换WebM贴纸为GIF... (%(time)s秒)',
     },
 
     'en': {
@@ -64,6 +66,8 @@ Hope you enjoy it :)''',
         'zip_timeout': 'Timeout waiting, try again later',
         'exec_error': 'Error executing, please download and decode by yourself',
         'file_size_exceed': 'File too large, please download and decode by yourself',
+        'webm_processing': 'Converting WebM sticker to GIF, please wait...',
+        'webm_processing_progress': 'Converting WebM sticker to GIF... (%(time)ss elapsed)',
     }
 }
 _translation_default = _translation['en']
