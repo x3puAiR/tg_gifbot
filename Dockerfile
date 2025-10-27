@@ -1,4 +1,4 @@
-FROM centos:7
+FROM alpine:3.18
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -16,10 +16,11 @@ ENV TELEGRAM_BOT_TOKEN="" \
 
 # Copy minimal files first for better caching during install script
 COPY requirements.txt ./
-COPY install_centos.sh ./
+COPY install_alpine.sh ./
 
-# Use the provided install script to set up Python 3.6, FFmpeg, and venv deps
-RUN bash /app/install_centos.sh
+# Use the provided install script to set up Python 3, FFmpeg, and venv deps
+RUN chmod +x /app/install_alpine.sh && \
+    /app/install_alpine.sh
 
 # Copy the rest of the app
 COPY . .
