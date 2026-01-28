@@ -4,7 +4,7 @@
 # Alpine Linux Python 3 and FFmpeg Installation Script
 # This script installs Python 3, pip, FFmpeg, and necessary build dependencies
 
-set -e  # Exit on error
+set -e 
 
 echo "=========================================="
 echo "Alpine Linux Setup Script"
