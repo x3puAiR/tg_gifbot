@@ -9,30 +9,40 @@ ENV LANG=C.UTF-8 \
 
 WORKDIR /app
 
-# Default envs; users should override TELEGRAM_BOT_TOKEN and paths as needed
 ENV TELEGRAM_BOT_TOKEN="" \
     BASE_DIR="/app" \
     TEMP_DIR="/data"
 
-# Copy minimal files first for better caching during install script
 COPY requirements.txt ./
-COPY install_alpine.sh ./
 
-# Use the provided install script to set up Python 3, FFmpeg, and venv deps
-RUN chmod +x /app/install_alpine.sh && \
-    /app/install_alpine.sh
+# Install runtime and build dependencies
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    bash \
+    ffmpeg && \
+    apk add --no-cache --virtual .build-deps \
+    python3-dev \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    zlib-dev \
+    jpeg-dev \
+    openjpeg-dev \
+    linux-headers
 
-# Copy the rest of the app
+# Create venv and install Python dependencies from requirements.txt
+RUN python3 -m venv /app/.env && \
+    /app/.env/bin/pip install --upgrade pip "setuptools<81" wheel && \
+    /app/.env/bin/pip install --no-cache-dir -r requirements.txt && \
+    apk del .build-deps
+
 COPY . .
 
-# Create a data volume for temp/cache
 VOLUME ["/data"]
 
-# Add entrypoint
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["python3", "main_run_bot.py"]
-
-
+CMD ["/app/.env/bin/python", "main_run_bot.py"]

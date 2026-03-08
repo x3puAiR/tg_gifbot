@@ -283,7 +283,6 @@ class BotExecutor():
         locale = update.effective_user.language_code
         update.message.reply_markdown(l10n('help', locale))
 
-    @check_usage_limit
     def cmd_sticker(self, update, context):
         ''''''
         # language
@@ -297,13 +296,11 @@ class BotExecutor():
         else:
             self.download_sticker_async(file_id, update=update, context=context)
 
-    @check_usage_limit
     def cmd_sticker_set(self, update, context):
         ''''''
         sticker_set_name = context.match.group('sticker_set')
         self.download_sticker_set_async(sticker_set_name, update=update, context=context)
 
-    @check_usage_limit
     def callback_sticker_set(self, update, context):
         ''''''
         # answer
@@ -317,7 +314,6 @@ class BotExecutor():
         sticker_set_name = callback_data.split(':')[-1]
         self.download_sticker_set_async(sticker_set_name, update=update, context=context)
 
-    @check_usage_limit
     def cmd_gif(self, update, context):
         ''''''
         # language
