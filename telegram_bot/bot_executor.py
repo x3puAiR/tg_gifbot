@@ -3,8 +3,8 @@
 import os
 import re
 import time
-from telegram import File, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (CommandHandler, MessageHandler, CallbackQueryHandler, RegexHandler,
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (CommandHandler, MessageHandler, CallbackQueryHandler,
                           Updater, Filters, PicklePersistence)
 from telegram.ext.dispatcher import run_async
 
@@ -13,14 +13,26 @@ from global_config.environment_config import _base_dir, _temp_dir
 from telegram_bot.sticker_set_downloader import (download_sticker, download_sticker_set,
                                                  download_sticker_animated_pack)
 from telegram_bot.gif_downloader import download_gif_pack
-from telegram_bot.func_helper import random_string
+from telegram_bot.func_helper import random_string, ensure_directory
 from localization.translator import l10n
 from log_helper.msg_logger import MsgLogger
 
 
 STICKER_SET = 'sticker_set'
-LIMITATION = 100 * 1024 * 1024 # 100MB
-LIMITATION_STRING = str(round(LIMITATION/(1024*1024))) + 'MB'
+
+# Performance limits
+DAILY_USAGE_LIMIT_MB = 100
+LIMITATION = DAILY_USAGE_LIMIT_MB * 1024 * 1024
+LIMITATION_STRING = str(DAILY_USAGE_LIMIT_MB) + 'MB'
+
+# File size limits
+MAX_GIF_FILE_SIZE_MB = 1
+
+# Retry/Wait configuration
+ZIP_PACK_MAX_RETRIES = 10
+ZIP_PACK_RETRY_INTERVAL_SEC = 30
+STICKER_DL_MAX_RETRIES = 10
+STICKER_DL_RETRY_INTERVAL_SEC = 10
 
 
 def is_usage_exceed(context, limit=LIMITATION):
@@ -49,7 +61,7 @@ def set_usage(context, file_path=None):
     return user_dict['today_usage']
 
 def check_usage_limit(func):
-    def warpper(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         _, update, context, *_ = args
         if is_usage_exceed(context):
             # language
@@ -59,17 +71,19 @@ def check_usage_limit(func):
             return None
         else:
             return func(*args, **kwargs)
-    return warpper
+    return wrapper
 
 
 class BotExecutor():
+    """Telegram bot executor for handling GIF and sticker conversions and downloads."""
+
     def __init__(self,
                  cert_path=None,
                  key_path=None,
                  webhook_url=None,
                  persistence_file_path=os.path.join(_base_dir, '.app_cache/bot_data'),
                  log_file_path=os.path.join(_base_dir, '.app_cache/app.log')):
-        ''''''
+        """Initialize the bot executor with optional webhook configuration and file paths."""
         # telegram
         self.cert_path = cert_path
         self.key_path = key_path
@@ -77,15 +91,15 @@ class BotExecutor():
 
         # persistence
         _dir = os.path.dirname(persistence_file_path)
-        os.path.isdir(_dir) or os.makedirs(_dir)
+        ensure_directory(_dir)
         self.persistence_file_path = persistence_file_path
 
         # log
         _dir = os.path.dirname(log_file_path)
-        os.path.isdir(_dir) or os.makedirs(_dir)
+        ensure_directory(_dir)
         self.logger = MsgLogger(log_file=log_file_path).get_logger()
 
-        self.gif_file_size_max = 1 * 1024 * 1024 # 1MB
+        self.gif_file_size_max = MAX_GIF_FILE_SIZE_MB * 1024 * 1024
 
 
     ''' helper functions '''
@@ -109,10 +123,10 @@ class BotExecutor():
                 pass
             elif os.path.isdir(file_dir):
                 message.reply_text(l10n('zip_packing', locale))
-                # wait 10 times, 30 seconds for each
-                for _ in range(10):
+                # wait with retries for zip file to be created
+                for _ in range(ZIP_PACK_MAX_RETRIES):
                     if not os.path.isfile(zip_file_path):
-                        time.sleep(30)
+                        time.sleep(ZIP_PACK_RETRY_INTERVAL_SEC)
                     else:
                         break
                 else:
@@ -220,10 +234,10 @@ class BotExecutor():
         if os.path.isfile(file_path):
             pass
         elif os.path.isdir(file_dir):
-            # wait 10 times, 10 seconds for each
-            for _ in range(10):
+            # wait with retries for sticker file to be downloaded
+            for _ in range(STICKER_DL_MAX_RETRIES):
                 if not os.path.isfile(file_path):
-                    time.sleep(10)
+                    time.sleep(STICKER_DL_RETRY_INTERVAL_SEC)
                 else:
                     break
             else:
@@ -231,7 +245,7 @@ class BotExecutor():
                 return -1
         else:
             # make dir `sticker_name`
-            os.path.isdir(file_dir) or os.makedirs(file_dir)
+            ensure_directory(file_dir)
             try:
                 _, file_path = download_sticker(sticker, save_dir=file_dir)
             except Exception as e:
@@ -260,7 +274,7 @@ class BotExecutor():
     ''' command functions '''
 
     def cmd_start(self, update, context):
-        ''''''
+        """Handle the /start command and greet the user."""
         # language
         locale = update.effective_user.language_code
 
@@ -278,13 +292,13 @@ class BotExecutor():
         update.message.reply_text(l10n('start', locale) % {'user': user_name})
 
     def cmd_help(self, update, context):
-        ''''''
+        """Handle the /help command and send available commands."""
         # language
         locale = update.effective_user.language_code
         update.message.reply_markdown(l10n('help', locale))
 
     def cmd_sticker(self, update, context):
-        ''''''
+        """Handle sticker uploads and download individual stickers."""
         # language
         locale = update.effective_user.language_code
 
@@ -297,12 +311,12 @@ class BotExecutor():
             self.download_sticker_async(file_id, update=update, context=context)
 
     def cmd_sticker_set(self, update, context):
-        ''''''
+        """Handle sticker set links and download entire sticker sets."""
         sticker_set_name = context.match.group('sticker_set')
         self.download_sticker_set_async(sticker_set_name, update=update, context=context)
 
     def callback_sticker_set(self, update, context):
-        ''''''
+        """Handle the sticker set button callback from inline keyboards."""
         # answer
         update.callback_query.answer()
 
@@ -315,7 +329,7 @@ class BotExecutor():
         self.download_sticker_set_async(sticker_set_name, update=update, context=context)
 
     def cmd_gif(self, update, context):
-        ''''''
+        """Handle GIF file uploads and convert to sticker pack."""
         # language
         locale = update.effective_user.language_code
 
@@ -327,7 +341,7 @@ class BotExecutor():
             self.download_gif_pack_async(file_id, update=update, context=context)
 
     def error_handler(self, update, context):
-        ''''''
+        """Handle and log errors from the Telegram bot dispatcher."""
         try:
             # Safely convert update to string, handling Unicode characters
             update_str = str(update) if update else 'None'
@@ -337,7 +351,7 @@ class BotExecutor():
             self.logger.error('Exception msg: %s\nUpdate: [Unicode content]', context.error)
 
     def execute(self):
-        ''''''
+        """Start the bot in polling or webhook mode and run the update dispatcher."""
         self.logger.info('Starting Telegram GIF Bot...')
         
         # persistence

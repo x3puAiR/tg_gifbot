@@ -5,26 +5,32 @@ from PIL import Image
 from telegram import Bot
 
 from global_config.protected_config import _telegrambot_token
-from global_config.environment_config import _base_dir, _temp_dir
-from telegram_bot.func_helper import random_string, zip_dir
+from global_config.environment_config import _temp_dir
+from telegram_bot.func_helper import random_string, zip_dir, ensure_directory, mp42gif
+
+
+# Sticker conversion settings
+STICKER_FRAME_RATE_FPS = 30
 
 
 class StickerSetDownloader():
+    """Download and convert Telegram sticker sets to PNG format."""
+
     def __init__(self):
-        ''''''
+        """Initialize the sticker set downloader with Telegram bot API access."""
         self.num_threads = 4
         self.bot = Bot(_telegrambot_token)
 
     @staticmethod
     def webp2png(in_file_path, out_file_path):
-        ''''''
+        """Convert WebP image to PNG format using PIL."""
         im = Image.open(in_file_path)
         im.save(out_file_path, 'PNG')
         return out_file_path
 
     @staticmethod
     def webm2png(in_file_path, out_file_path):
-        ''''''
+        """Extract first frame from WebM video and convert to PNG using ffmpeg."""
         # Use ffmpeg to extract first frame from WebM video and convert to PNG
         command = 'ffmpeg -y -i %(webm)s -vframes 1 -f image2 %(png)s > /dev/null 2>&1'
         command = command % {'webm': in_file_path, 'png': out_file_path}
@@ -36,7 +42,7 @@ class StickerSetDownloader():
 
     @staticmethod
     def tgs2mp4(in_file_path, out_file_path):
-        ''''''
+        """Convert TGS animated sticker to MP4 video using tgsconvert and puppeteer-lottie."""
         json_path = out_file_path.replace('mp4', 'json')
         command = 'tgsconvert.py %(tgs)s %(json)s > /dev/null 2>&1'
         command = command % {'tgs': in_file_path, 'json': json_path}
@@ -54,116 +60,132 @@ class StickerSetDownloader():
         else:
             return out_file_path
 
-    @staticmethod
-    def mp42gif(in_file_path, out_file_path):
-        ''''''
-        command = 'ffmpeg -y -i %(mp4)s -filter_complex "fps=30" %(gif)s'
-        command = command % {'mp4': in_file_path, 'gif': out_file_path}
-        status = os.system(command + ' > /dev/null 2>&1')
-        if status != 0:
-            raise Exception('ffmpeg error: execute .mp4 => .gif')
-        else:
-            return out_file_path
 
     def download_sticker(self, file_id, save_dir=None, random_name=False):
-        ''''''
-        sticker = file_id if not isinstance(file_id, str) else self.bot.get_file(file_id)
+        """Download a sticker from Telegram and convert to PNG format."""
+        try:
+            sticker = file_id if not isinstance(file_id, str) else self.bot.get_file(file_id)
 
-        # use default `temp` path
-        save_dir = save_dir or _temp_dir
-        file_name = sticker.file_path.split('/')[-1]
-        
-        # Determine file extension from the actual file path
-        file_extension = os.path.splitext(file_name)[1].lower()
-        
-        if random_name:
-            # Use the actual file extension instead of assuming .webp
-            file_name = random_string() + file_extension
-        
-        file_path = os.path.join(save_dir, file_name)
-        
-        # Determine output path based on file type
-        if file_extension == '.webm':
-            out_path = file_path.replace('.webm', '.png')
-        elif file_extension == '.webp':
-            out_path = file_path.replace('.webp', '.png')
-        else:
-            # For other formats, try to convert to PNG
-            out_path = file_path.replace(file_extension, '.png')
+            # use default `temp` path
+            save_dir = save_dir or _temp_dir
+            file_name = sticker.file_path.split('/')[-1]
 
-        # download the file
-        sticker.download(custom_path=file_path)
-        
-        # convert based on file type
-        if file_extension == '.webm':
-            self.webm2png(file_path, out_path)
-        elif file_extension == '.webp':
-            self.webp2png(file_path, out_path)
-        else:
-            # Try PIL first, fallback to ffmpeg if PIL fails
-            try:
-                self.webp2png(file_path, out_path)
-            except Exception:
-                # If PIL fails, try ffmpeg as fallback
+            # Determine file extension from the actual file path
+            file_extension = os.path.splitext(file_name)[1].lower()
+
+            if random_name:
+                # Use the actual file extension instead of assuming .webp
+                file_name = random_string() + file_extension
+
+            file_path = os.path.join(save_dir, file_name)
+
+            # Determine output path based on file type
+            if file_extension == '.webm':
+                out_path = file_path.replace('.webm', '.png')
+            elif file_extension == '.webp':
+                out_path = file_path.replace('.webp', '.png')
+            else:
+                # For other formats, try to convert to PNG
+                out_path = file_path.replace(file_extension, '.png')
+
+            # download the file
+            sticker.download(custom_path=file_path)
+
+            # convert based on file type
+            if file_extension == '.webm':
                 self.webm2png(file_path, out_path)
+            elif file_extension == '.webp':
+                self.webp2png(file_path, out_path)
+            else:
+                # Try PIL first, fallback to ffmpeg if PIL fails
+                try:
+                    self.webp2png(file_path, out_path)
+                except Exception as pil_err:
+                    # If PIL fails, try ffmpeg as fallback
+                    try:
+                        self.webm2png(file_path, out_path)
+                    except Exception:
+                        raise Exception(f'Failed to convert sticker format {file_extension}: {str(pil_err)}')
 
-        return (file_path, out_path)
+            return (file_path, out_path)
+        except OSError as e:
+            raise Exception(f'File I/O error in download_sticker: {str(e)}')
+        except Exception as e:
+            raise Exception(f'Error downloading or converting sticker: {str(e)}')
 
     def download_sticker_set(self, sticker_set_name, out_path=None):
-        ''''''
-        sticker_set = self.bot.get_sticker_set(sticker_set_name)
-        stickers = sticker_set.stickers
+        """Download an entire sticker set from Telegram and create a zip package."""
+        try:
+            sticker_set = self.bot.get_sticker_set(sticker_set_name)
+            stickers = sticker_set.stickers
 
-        # make dir `sticker_set_name`
-        file_dir = os.path.join(_temp_dir, sticker_set_name)
-        os.path.isdir(file_dir) or os.makedirs(file_dir)
+            # make dir `sticker_set_name`
+            file_dir = os.path.join(_temp_dir, sticker_set_name)
+            ensure_directory(file_dir)
 
-        # download and convert
-        for sticker in stickers:
-            file_id = sticker.file_id
-            original_path, _ = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
-            # Clean up the original file (webp, webm, etc.) after conversion
-            os.path.isfile(original_path) and os.remove(original_path)
+            # download and convert
+            for sticker in stickers:
+                try:
+                    file_id = sticker.file_id
+                    original_path, _ = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
+                    # Clean up the original file (webp, webm, etc.) after conversion
+                    os.path.isfile(original_path) and os.remove(original_path)
+                except OSError as e:
+                    raise Exception(f'File error processing sticker {file_id}: {str(e)}')
 
-        # zip
-        out_path = out_path or file_dir + '.zip'
-        zip_dir(file_dir, out_path)
-        return out_path
+            # zip
+            out_path = out_path or file_dir + '.zip'
+            zip_dir(file_dir, out_path)
+            return out_path
+        except OSError as e:
+            raise Exception(f'File system error in download_sticker_set: {str(e)}')
+        except Exception as e:
+            raise Exception(f'Error downloading sticker set: {str(e)}')
 
     def download_sticker_animated(self, file_id, save_dir=None, random_name=False):
-        ''''''
-        sticker = file_id if not isinstance(file_id, str) else self.bot.get_file(file_id)
+        """Download an animated sticker and convert to GIF format."""
+        try:
+            sticker = file_id if not isinstance(file_id, str) else self.bot.get_file(file_id)
 
-        # use default `temp` path
-        save_dir = save_dir or _temp_dir
-        file_name = sticker.file_path.split('/')[-1]
-        if random_name:
-            file_name = random_string() + '.tgs'
-        file_path = os.path.join(save_dir, file_name)
-        out_path_mp4 = file_path.replace('tgs', 'mp4')
-        out_path_gif = file_path.replace('tgs', 'gif')
+            # use default `temp` path
+            save_dir = save_dir or _temp_dir
+            file_name = sticker.file_path.split('/')[-1]
+            if random_name:
+                file_name = random_string() + '.tgs'
+            file_path = os.path.join(save_dir, file_name)
+            out_path_mp4 = file_path.replace('tgs', 'mp4')
+            out_path_gif = file_path.replace('tgs', 'gif')
 
-        # download and convert
-        sticker.download(custom_path=file_path)
-        self.tgs2mp4(file_path, out_path_mp4)
-        self.mp42gif(out_path_mp4, out_path_gif)
+            # download and convert
+            sticker.download(custom_path=file_path)
+            self.tgs2mp4(file_path, out_path_mp4)
+            mp42gif(out_path_mp4, out_path_gif, fps=STICKER_FRAME_RATE_FPS)
 
-        return (file_path, out_path_mp4, out_path_gif)
+            return (file_path, out_path_mp4, out_path_gif)
+        except OSError as e:
+            raise Exception(f'File I/O error in download_sticker_animated: {str(e)}')
+        except Exception as e:
+            raise Exception(f'Error downloading or converting animated sticker: {str(e)}')
 
     def download_sticker_animated_pack(self, file_id, pack_name, out_path=None):
-        ''''''
-        # make dir `pack_name`
-        file_dir = os.path.join(_temp_dir, pack_name)
-        os.path.isdir(file_dir) or os.makedirs(file_dir)
+        """Download an animated sticker and create a zip package."""
+        try:
+            # make dir `pack_name`
+            file_dir = os.path.join(_temp_dir, pack_name)
+            ensure_directory(file_dir)
 
-        # download and convert
-        self.download_sticker_animated(file_id, save_dir=file_dir, random_name=True)
+            # download and convert
+            self.download_sticker_animated(file_id, save_dir=file_dir, random_name=True)
 
-        # zip
-        out_path = out_path or file_dir + '.zip'
-        zip_dir(file_dir, out_path)
+            # zip
+            out_path = out_path or file_dir + '.zip'
+            zip_dir(file_dir, out_path)
 
-        return out_path
+            return out_path
+        except OSError as e:
+            raise Exception(f'File system error in download_sticker_animated_pack: {str(e)}')
+        except Exception as e:
+            raise Exception(f'Error creating animated sticker pack: {str(e)}')
 
 
 _sticker = StickerSetDownloader()
