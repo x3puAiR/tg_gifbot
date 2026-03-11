@@ -6,8 +6,6 @@ if [ ! -d "/app/.env" ]; then
   python3 -m venv /app/.env || true
 fi
 source /app/.env/bin/activate || true
-pip3 install -r requirements.txt
-
 
 # Generate config files based on env vars
 mkdir -p /app/global_config
