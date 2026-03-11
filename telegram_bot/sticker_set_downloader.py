@@ -30,24 +30,37 @@ class StickerSetDownloader():
 
     @staticmethod
     def webm2gif(in_file_path, out_file_path):
-        """Convert WebM video to animated GIF using ffmpeg with optimized settings."""
-        # Use ffmpeg to convert WebM video to GIF with optimized settings for speed
-        # Single command approach - faster than palette generation
-        command = 'ffmpeg -y -i %(webm)s -vf "fps=10,scale=256:-1:flags=fast_bilinear" -t 2 %(gif)s'
-        command = command % {'webm': in_file_path, 'gif': out_file_path}
-
+        """Convert WebM video to animated GIF using ffmpeg with palette for accurate speed."""
         import logging
         logger = logging.getLogger('gifbot')
-        logger.debug('WebM to GIF conversion command: %s', command)
 
-        status = os.system(command + ' > /dev/null 2>&1')
+        # Two-pass palette approach: preserves colour quality and correct playback speed.
+        # fps=30 matches Telegram sticker frame rate closely while staying within GIF's
+        # ~50fps renderer ceiling (most players floor frame delay to 20ms).
+        palette_path = out_file_path.replace('.gif', '_palette.png')
+        vf_palette = 'fps=30,scale=256:-1:flags=lanczos,palettegen'
+        vf_render  = 'fps=30,scale=256:-1:flags=lanczos[x];[x][1:v]paletteuse'
+
+        cmd_palette = 'ffmpeg -y -i %(in)s -vf "%(vf)s" %(palette)s' % {
+            'in': in_file_path, 'vf': vf_palette, 'palette': palette_path}
+        cmd_render  = 'ffmpeg -y -i %(in)s -i %(palette)s -filter_complex "%(vf)s" %(out)s' % {
+            'in': in_file_path, 'palette': palette_path, 'vf': vf_render, 'out': out_file_path}
+
+        logger.debug('WebM to GIF palette command: %s', cmd_palette)
+        status = os.system(cmd_palette + ' > /dev/null 2>&1')
+
+        if status == 0:
+            logger.debug('WebM to GIF render command: %s', cmd_render)
+            status = os.system(cmd_render + ' > /dev/null 2>&1')
+            os.path.isfile(palette_path) and os.remove(palette_path)
 
         if status != 0:
-            # Fallback to simpler conversion
-            command = 'ffmpeg -y -i %(webm)s -vf "fps=8,scale=256:-1" -t 1.5 %(gif)s'
-            command = command % {'webm': in_file_path, 'gif': out_file_path}
-            logger.debug('WebM to GIF fallback command: %s', command)
-            status = os.system(command + ' > /dev/null 2>&1')
+            # Fallback: single-pass, no palette (slightly worse quality but still correct speed)
+            os.path.isfile(palette_path) and os.remove(palette_path)
+            cmd_fallback = 'ffmpeg -y -i %(in)s -vf "fps=30,scale=256:-1" %(out)s' % {
+                'in': in_file_path, 'out': out_file_path}
+            logger.debug('WebM to GIF fallback command: %s', cmd_fallback)
+            status = os.system(cmd_fallback + ' > /dev/null 2>&1')
             if status != 0:
                 logger.error('WebM to GIF conversion failed with status: %s', status)
                 raise Exception('ffmpeg error: execute .webm => .gif')
