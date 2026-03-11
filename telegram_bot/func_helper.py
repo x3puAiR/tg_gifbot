@@ -79,6 +79,6 @@ def mp42gif(in_file_path, out_file_path, fps=MP4_TO_GIF_DEFAULT_FPS):
     status = os.system(command + ' > /dev/null 2>&1')
     os.path.isfile(palette_path) and os.remove(palette_path)
     if status != 0:
-        raise Exception('ffmpeg error: execute .gif => .mp4')
+        raise Exception('ffmpeg error: execute .mp4 => .gif')
     else:
         return out_file_path

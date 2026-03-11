@@ -301,9 +301,10 @@ class BotExecutor():
                                     callback_data=callback_data),
             ]]
         )
+        file_ext = os.path.splitext(file_path)[1]  # .gif for webm, .png otherwise
         with open(file_path, 'rb') as f:
             chat.send_document(f, reply_markup=keyboard,
-                            filename=sticker_unique_id+'.png',
+                            filename=sticker_unique_id+file_ext,
                             reply_to_message_id=message.message_id)
 
         # count usage
