@@ -167,9 +167,7 @@ class StickerSetDownloader():
             for sticker in stickers:
                 try:
                     file_id = sticker.file_id
-                    original_path, _ = self.download_sticker(file_id, save_dir=file_dir, random_name=True)
-                    # Clean up the original file (webp, webm, etc.) after conversion
-                    os.path.isfile(original_path) and os.remove(original_path)
+                    self.download_sticker(file_id, save_dir=file_dir, random_name=True)
                 except OSError as e:
                     raise Exception(f'File error processing sticker {file_id}: {str(e)}')
 
