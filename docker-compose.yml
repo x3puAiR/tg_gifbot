@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: tg-gifbot
     container_name: gifbot
     environment:
       # Provide via .env or override on command line
