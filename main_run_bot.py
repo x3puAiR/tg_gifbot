@@ -8,9 +8,12 @@ from telegram_bot.bot_executor import BotExecutor
 
 
 def _clean_temp_dir():
-    if os.path.isdir(_temp_dir):
-        shutil.rmtree(_temp_dir)
-    os.makedirs(_temp_dir)
+    os.makedirs(_temp_dir, exist_ok=True)
+    for entry in os.scandir(_temp_dir):
+        if entry.is_dir(follow_symlinks=False):
+            shutil.rmtree(entry.path)
+        else:
+            os.remove(entry.path)
 
 
 if __name__ == '__main__':
